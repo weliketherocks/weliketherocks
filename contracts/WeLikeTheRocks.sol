@@ -27,8 +27,7 @@ contract WeLikeTheRocks is ERC721, Ownable {
 
   string private _baseTokenURI;
   uint256 private _totalSupply;
-  bytes32 private saltNonce = keccak256("We Like The Rocks");
-  
+
   mapping(address => address) public wardens;
     
   constructor() ERC721("We Like The Rocks", "WLTR") {}
@@ -48,6 +47,7 @@ contract WeLikeTheRocks is ERC721, Ownable {
   function wrap(uint256 id) public {
     // get warden address
     address warden = wardens[_msgSender()];
+    require(warden != address(0), "Warden not registered");
     
     // claim rock
     RockWarden(warden).claim(id, rocks);
@@ -73,9 +73,7 @@ contract WeLikeTheRocks is ERC721, Ownable {
   }
   
   function createWarden() public {
-    bytes32 salt = keccak256(abi.encode(_msgSender(), saltNonce));
-    bytes memory bytecode = abi.encodePacked(type(RockWarden).creationCode);
-    address warden = Create2.deploy(0, salt, bytecode);
+    address warden = address(new RockWarden());
     require(warden != address(0), "Warden address incorrect");
     require(wardens[_msgSender()] == address(0), "Warden already created");
     wardens[_msgSender()] = warden;
