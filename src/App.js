@@ -850,7 +850,7 @@ const Rock = ({ id }) => {
             }
       }
     >
-      {!manage && (
+      {(!manage && parseInt(id) < 100) && (
         <img
           className="mb-3"
           alt={`rock-${id}`}
@@ -877,9 +877,11 @@ const Rock = ({ id }) => {
 
 const Minter = () => {
   const [num, setNum] = useState("");
+  const [managingRock, setManagingRock] = useState(false);
+  const [numManage, setNumManage] = useState("");
   const [available, setAvailable] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { account, library, networkId } = useWeb3React();
+  const { account, library, chainId: networkId } = useWeb3React();
 
   const getEtherRockContract = () => {
     const signer = account ? library?.getSigner(account) : library;
@@ -892,11 +894,30 @@ const Minter = () => {
   };
 
   const mint = async () => {
-    setLoading(true);
-    const contract = getMinterContract();
-    const tx = await contract.buy(num);
-    await tx.wait();
-    setLoading(false);
+
+  };
+
+  const manageRock = async () => {
+    if (!managingRock){
+      if (parseInt(numManage) < 100){
+        alert("You can manage this earliest version rock below.")
+      } else {
+        setLoading(true);
+        const contract = getEtherRockContract();
+        const rock = await contract.rocks(numManage);
+        console.log(rock.owner, account)
+        if (rock.owner && rock.owner === account) {
+          setManagingRock(true);
+        } else {
+          alert("You are not the owner of this rock.")
+        }
+      }
+    }
+  };
+  const clearManageRock = async () => {
+    if (managingRock){
+      setManagingRock(false);
+    }
   };
 
   const check = async () => {
@@ -934,13 +955,43 @@ const Minter = () => {
             Check
           </button>
         )}
+
+    </div>
+    <br/>
+    <div style={{ display: "flex" }}>
+        {!managingRock ? (
+          
+          <>
+            <input
+              class="input"
+              type="text"
+              placeholder="rock number"
+              onChange={(e) => setNumManage(e.target.value)}
+              value={numManage}
+            />
+            <button className="button ml-2" disabled={!account} onClick={manageRock}>
+              Manage
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="button ml-2" disabled={!account} onClick={clearManageRock}>
+              Back
+            </button>
+
+            <Rock id={numManage} />
+          </>
+        )}
+
+
+
       </div>
     </div>
   );
 };
 
 function App() {
-  const { account, activate, deactivate, active } = useWeb3React();
+  const { account, activate, deactivate, active, chainId: networkId } = useWeb3React();
   const rocks = Array.from(Array(100).keys());
   if (!account && !active) {
     const knownConnector = localStorage.getItem("connector");
@@ -1021,13 +1072,22 @@ function App() {
                 <i class="fab fa-discord"></i>
               </a>
             </span>
-            <span class="icon">
+            <span class="icon" class="icon mr-6">
               <a
                 target="_blank"
                 rel="noreferrer"
                 href="https://twitter.com/weliketherocks"
               >
                 <i class="fab fa-twitter"></i>
+              </a>
+            </span>
+            <span class="icon">
+              <a
+                target="_blank"
+                rel="noreferrer"
+                href={`https://${networkId==4 ? "rinkeby." : "" }etherscan.io/address/${addresses.rocks[networkId]}#code`}
+              >
+                <i class="fab fa-ethereum"></i>
               </a>
             </span>
           </p>
