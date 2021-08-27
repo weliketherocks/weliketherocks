@@ -7,9 +7,14 @@ import classNames from "classnames";
 
 import { ethers, utils } from "ethers";
 
-const injected = new InjectedConnector({ supportedChainIds: [1] });
+const injected = new InjectedConnector({ supportedChainIds: [1, 4] });
+
 const network = new NetworkConnector({
-  urls: { 1: "https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161" },
+  defaultChainId: 1,
+  urls: {
+    1: "https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
+    4: "https://rinkeby.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
+  },
 });
 
 function getLibrary(provider) {
@@ -234,9 +239,7 @@ const wrapperABI = [
     type: "function",
   },
   {
-    inputs: [
-      { internalType: "address", name: "wardenAddress", type: "address" },
-    ],
+    inputs: [],
     name: "createWarden",
     outputs: [],
     stateMutability: "nonpayable",
@@ -245,13 +248,6 @@ const wrapperABI = [
   {
     inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
     name: "getApproved",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "addr", type: "address" }],
-    name: "getWardenAddress",
     outputs: [{ internalType: "address", name: "", type: "address" }],
     stateMutability: "view",
     type: "function",
@@ -397,6 +393,13 @@ const wrapperABI = [
     type: "function",
   },
   {
+    inputs: [{ internalType: "address", name: "", type: "address" }],
+    name: "wardens",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [{ internalType: "uint256", name: "id", type: "uint256" }],
     name: "wrap",
     outputs: [],
@@ -405,31 +408,59 @@ const wrapperABI = [
   },
 ];
 
+const other = [
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "id",
+        type: "uint256",
+      },
+    ],
+    name: "buy",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+];
+
 const MAX_SALE_FIG = 4;
+
+const addresses = {
+  rocks: {
+    1: "0x37504AE0282f5f334ED29b4548646f887977b7cC",
+    4: "0xBC0dAA15d70d35f257450197c129A220fb1F2955",
+  },
+  wrappers: {
+    1: "0xE50ea3978E0902F7287Fd35Bf84864104dF13ba3",
+    4: "0x689c8E7fA5DD2044F3a8f3465d96E1773fFaE5b8",
+  },
+  minters: {
+    1: "0xC314D734EAe9B3926C15BC2C89596822B541EFfd",
+    4: "0xC314D734EAe9B3926C15BC2C89596822B541EFfd",
+  },
+};
 
 const Rock = ({ id }) => {
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [wrapping, setWrapping] = useState(false);
+  const [unwrapping, setUnwrapping] = useState(false);
   const [manage, setManage] = useState(false);
   const [selling, setSelling] = useState(false);
   const [price, setPrice] = useState("");
 
-  const { account, library } = useWeb3React();
+  const { account, library, chainId: networkId } = useWeb3React();
 
   const getEtherRockContract = () => {
     const signer = account ? library?.getSigner(account) : library;
-    return new ethers.Contract(
-      "0x37504AE0282f5f334ED29b4548646f887977b7cC",
-      abi,
-      signer
-    );
+    return new ethers.Contract(addresses.rocks[networkId], abi, signer);
   };
 
   const getWrapperContract = () => {
     const signer = account ? library?.getSigner(account) : library;
     return new ethers.Contract(
-      "0xE50ea3978E0902F7287Fd35Bf84864104dF13ba3",
+      addresses.wrappers[networkId],
       wrapperABI,
       signer
     );
@@ -444,17 +475,24 @@ const Rock = ({ id }) => {
         return await wrapper.ownerOf(id);
       } catch (e) {}
     };
+
     const [owner, warden, result] = await Promise.all([
       getOwner(),
-      account ? await wrapper.getWardenAddress(account) : null,
+      account ? await wrapper.wardens(account) : null,
       await contract.rocks(id),
     ]);
-    if (result.owner === warden) {
-      setInfo({ ...result, approved: true, isOwner: true });
+
+    const isSetup = warden !== ethers.constants.AddressZero;
+
+    if (
+      result.owner === warden &&
+      result.owner !== ethers.constants.AddressZero
+    ) {
+      setInfo({ ...result, approved: true, isOwner: true, isSetup });
     } else if (owner === account) {
-      setInfo({ ...result, wrapped: true, isOwner: true });
+      setInfo({ ...result, wrapped: true, isOwner: true, isSetup });
     } else if (result.owner === account) {
-      setInfo({ ...result, unwrapped: true, isOwner: true });
+      setInfo({ ...result, unwrapped: true, isOwner: true, isSetup });
     } else {
       setInfo(result);
     }
@@ -493,7 +531,10 @@ const Rock = ({ id }) => {
 
         // get wrapper
         const wrapper = getWrapperContract();
-        const warden = await wrapper.getWardenAddress(account);
+        const warden = await wrapper.wardens(account);
+        if (warden === ethers.constants.AddressZero) {
+          throw new Error("Warden is wrong");
+        }
 
         // approve
         const contract = getEtherRockContract();
@@ -578,32 +619,34 @@ const Rock = ({ id }) => {
     }
   };
 
+  const setup = async () => {
+    try {
+      if (account) {
+        setLoading(true);
+
+        const contract = getWrapperContract();
+        const tx = await contract.createWarden();
+
+        await tx.wait();
+        await fetchInfo();
+        setLoading(false);
+      }
+    } catch (e) {
+      setLoading(false);
+    }
+  };
+
+  const priceMaxed = info && info.price.eq(ethers.constants.MaxUint256);
+
   const renderButton = () => {
     const btnClass = classNames("button is-info", { "is-loading": loading });
     const btnClassM2 = classNames("button is-info mb-2");
     if (info) {
       if (info.isOwner) {
         if (manage) {
-          if (wrapping) {
-            // TODO: new wrapping flow -> not for sale, create warden, deposit, wrap
+          if (unwrapping) {
             return (
               <>
-                <button
-                  className={btnClassM2}
-                  disabled={loading || !info.unwrapped}
-                  onClick={approve}
-                  style={{ width: 105 }}
-                >
-                  Deposit
-                </button>
-                <button
-                  className={btnClassM2}
-                  disabled={loading || !info.approved}
-                  onClick={wrap}
-                  style={{ width: 105 }}
-                >
-                  Wrap
-                </button>
                 <button
                   className={btnClassM2}
                   disabled={loading || !info.wrapped}
@@ -611,6 +654,54 @@ const Rock = ({ id }) => {
                   style={{ width: 105 }}
                 >
                   Unwrap
+                </button>
+                <button
+                  className={btnClass}
+                  disabled={loading}
+                  onClick={() => setUnwrapping(false)}
+                  style={{ width: 105 }}
+                >
+                  <i class="fas fa-arrow-left"></i>
+                </button>
+              </>
+            );
+          }
+          if (wrapping) {
+            return (
+              <>
+                <button
+                  className={btnClassM2}
+                  disabled={loading || priceMaxed}
+                  onClick={notForSale}
+                  style={{ width: 105 }}
+                >
+                  Not For Sale
+                </button>
+                <button
+                  className={btnClassM2}
+                  disabled={loading || info.isSetup || !priceMaxed}
+                  onClick={setup}
+                  style={{ width: 105 }}
+                >
+                  Set Up
+                </button>
+                <button
+                  className={btnClassM2}
+                  disabled={
+                    loading || !info.unwrapped || !info.isSetup || !priceMaxed
+                  }
+                  onClick={approve}
+                  style={{ width: 105 }}
+                >
+                  Deposit
+                </button>
+                <button
+                  className={btnClassM2}
+                  disabled={loading || !info.approved || !priceMaxed}
+                  onClick={wrap}
+                  style={{ width: 105 }}
+                >
+                  Wrap
                 </button>
                 <button
                   className={btnClass}
@@ -670,14 +761,6 @@ const Rock = ({ id }) => {
 
           return (
             <>
-              {/* <button
-                className={btnClassM2}
-                disabled={loading}
-                onClick={() => setWrapping(true)}
-                style={{ width: 105 }}
-              >
-                Wrapping
-              </button> */}
               <button
                 className={btnClassM2}
                 disabled={loading || !info.unwrapped}
@@ -685,6 +768,22 @@ const Rock = ({ id }) => {
                 style={{ width: 105 }}
               >
                 Selling
+              </button>
+              <button
+                className={btnClassM2}
+                disabled={loading || info.wrapped}
+                onClick={() => setWrapping(true)}
+                style={{ width: 105 }}
+              >
+                Wrapping
+              </button>
+              <button
+                className={btnClassM2}
+                disabled={loading || !info.wrapped}
+                onClick={() => setUnwrapping(true)}
+                style={{ width: 105 }}
+              >
+                Unwrapping
               </button>
               <button
                 className={btnClass}
@@ -772,6 +871,70 @@ const Rock = ({ id }) => {
         </a>
       )}
       {renderButton()}
+    </div>
+  );
+};
+
+const Minter = () => {
+  const [num, setNum] = useState("");
+  const [available, setAvailable] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { account, library, networkId } = useWeb3React();
+
+  const getEtherRockContract = () => {
+    const signer = account ? library?.getSigner(account) : library;
+    return new ethers.Contract(addresses.rocks[networkId], abi, signer);
+  };
+
+  const getMinterContract = () => {
+    const signer = account ? library?.getSigner(account) : library;
+    return new ethers.Contract(addresses.minters[networkId], other, signer);
+  };
+
+  const mint = async () => {
+    setLoading(true);
+    const contract = getMinterContract();
+    const tx = await contract.buy(num);
+    await tx.wait();
+    setLoading(false);
+  };
+
+  const check = async () => {
+    setLoading(true);
+    const contract = getEtherRockContract();
+    const rock = await contract.rocks(num);
+    if (rock.owner === "0x0000000000000000000000000000000000000000") {
+      setAvailable(true);
+    } else {
+      setAvailable(false);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    setAvailable(false);
+  }, [num]);
+
+  return (
+    <div>
+      <div style={{ display: "flex" }}>
+        <input
+          class="input"
+          type="text"
+          placeholder="rock number"
+          onChange={(e) => setNum(e.target.value)}
+          value={num}
+        />
+        {available ? (
+          <button className="button ml-2" disabled={!account} onClick={mint}>
+            Mint
+          </button>
+        ) : (
+          <button className="button ml-2" onClick={check} disabled={loading}>
+            Check
+          </button>
+        )}
+      </div>
     </div>
   );
 };
@@ -873,6 +1036,16 @@ function App() {
 
       <section class="section">
         <div class="container is-max-desktop">
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              marginBottom: "3rem",
+            }}
+          >
+            <Minter />
+          </div>
           <div
             style={{
               display: "flex",
