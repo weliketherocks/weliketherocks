@@ -535,6 +535,7 @@ const addresses = {
   rocks: {
     1: "0x37504AE0282f5f334ED29b4548646f887977b7cC",
     4: "0xBC0dAA15d70d35f257450197c129A220fb1F2955",
+    default: "0x37504AE0282f5f334ED29b4548646f887977b7cC",
   },
   wrappers: {
     1: "0xE50ea3978E0902F7287Fd35Bf84864104dF13ba3",
@@ -1155,7 +1156,9 @@ function App() {
                 rel="noreferrer"
                 href={`https://${
                   networkId === 4 ? "rinkeby." : ""
-                }etherscan.io/address/${addresses.rocks[networkId]}#code`}
+                }etherscan.io/address/${
+                  addresses.rocks[networkId] || addresses.rocks.default
+                }#code`}
               >
                 <i class="fab fa-ethereum"></i>
               </a>
