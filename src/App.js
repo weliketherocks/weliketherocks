@@ -571,6 +571,11 @@ const Rock = ({ id }) => {
     );
   };
 
+  const getMinterContract = () => {
+    const signer = account ? library?.getSigner(account) : library;
+    return new ethers.Contract(addresses.minters[networkId], other, signer);
+  };
+
   const fetchInfo = async () => {
     const contract = getEtherRockContract();
     const wrapper = getWrapperContract();
@@ -618,10 +623,15 @@ const Rock = ({ id }) => {
         setLoading(true);
 
         const contract = getEtherRockContract();
-        const tx = await contract.buyRock(id, {
-          value: info.price,
-        });
-
+        let tx;
+        if (info.price.isZero()) {
+          const minter = getMinterContract();
+          tx = await minter.buy(id);
+        } else {
+          tx = await contract.buyRock(id, {
+            value: info.price,
+          });
+        }
         await tx.wait();
         await fetchInfo();
         setLoading(false);
@@ -989,39 +999,13 @@ const Rock = ({ id }) => {
 };
 
 const Minter = () => {
-  const [num, setNum] = useState("");
   const [managingRock, setManagingRock] = useState(false);
   const [numManage, setNumManage] = useState("");
-  const [available, setAvailable] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const { account, library, chainId: networkId } = useWeb3React();
-
-  const getEtherRockContract = () => {
-    const signer = account ? library?.getSigner(account) : library;
-    return new ethers.Contract(addresses.rocks[networkId], abi, signer);
-  };
-
-  const getMinterContract = () => {
-    const signer = account ? library?.getSigner(account) : library;
-    return new ethers.Contract(addresses.minters[networkId], other, signer);
-  };
-
-  const mint = async () => {
-    try {
-      setLoading(true);
-      const contract = getMinterContract();
-      const tx = await contract.buy(num);
-      await tx.wait();
-      setLoading(false);
-    } catch {
-      setLoading(false);
-    }
-  };
+  const { account } = useWeb3React();
 
   const manageRock = async () => {
     if (!managingRock && numManage) {
       if (parseInt(numManage) > 99) {
-        setLoading(true);
         setManagingRock(true);
       }
     }
@@ -1033,54 +1017,8 @@ const Minter = () => {
     }
   };
 
-  const check = async () => {
-    setLoading(true);
-    const contract = getEtherRockContract();
-    const rock = await contract.rocks(num);
-    if (rock.owner === "0x0000000000000000000000000000000000000000") {
-      setAvailable(true);
-    } else {
-      setAvailable(false);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    setAvailable(false);
-    setLoading(false);
-  }, [num]);
-
   return (
     <div>
-      <div style={{ display: "flex" }}>
-        <input
-          class="input"
-          type="text"
-          placeholder="rock number"
-          onChange={(e) => setNum(e.target.value)}
-          style={{ width: 200 }}
-          value={num}
-        />
-        {available ? (
-          <button
-            style={{ width: 92 }}
-            className="button ml-2"
-            disabled={!account || loading}
-            onClick={mint}
-          >
-            Mint
-          </button>
-        ) : (
-          <button
-            style={{ width: 92 }}
-            className="button ml-2"
-            onClick={check}
-            disabled={loading || !num}
-          >
-            Check
-          </button>
-        )}
-      </div>
       <div style={{ display: "flex", marginTop: 8 }}>
         {!managingRock ? (
           <>
