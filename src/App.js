@@ -1001,7 +1001,6 @@ const Rock = ({ id }) => {
 const Minter = () => {
   const [managingRock, setManagingRock] = useState(false);
   const [numManage, setNumManage] = useState("");
-  const { account } = useWeb3React();
 
   const manageRock = async () => {
     if (!managingRock && numManage) {
@@ -1033,7 +1032,7 @@ const Minter = () => {
             <button
               style={{ width: 92 }}
               className="button ml-2"
-              disabled={!account || !numManage || parseInt(numManage) < 100}
+              disabled={!numManage || parseInt(numManage) < 100}
               onClick={manageRock}
             >
               View
@@ -1041,11 +1040,7 @@ const Minter = () => {
           </>
         ) : (
           <>
-            <button
-              className="button mr-2"
-              disabled={!account}
-              onClick={clearManageRock}
-            >
+            <button className="button mr-2" onClick={clearManageRock}>
               Back
             </button>
 
