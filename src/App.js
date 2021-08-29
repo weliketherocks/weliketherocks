@@ -1019,7 +1019,7 @@ const Minter = () => {
 
   return (
     <div>
-      <div style={{ display: "flex", marginTop: 8 }}>
+      <div style={{ display: "flex" }}>
         {!managingRock ? (
           <>
             <input
