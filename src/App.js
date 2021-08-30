@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Web3ReactProvider, useWeb3React } from "@web3-react/core";
+import { useVisibilityHook } from "react-observer-api";
 
+import { Web3ReactProvider, useWeb3React } from "@web3-react/core";
 import { InjectedConnector } from "@web3-react/injected-connector";
 import { NetworkConnector } from "@web3-react/network-connector";
 import classNames from "classnames";
@@ -548,6 +549,7 @@ const addresses = {
 };
 
 const Rock = ({ id }) => {
+  const { setElement, isVisible } = useVisibilityHook();
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [wrapping, setWrapping] = useState(false);
@@ -612,11 +614,11 @@ const Rock = ({ id }) => {
   };
 
   useEffect(() => {
-    if (library) {
+    if (library && isVisible) {
       fetchInfo();
     }
     // eslint-disable-next-line
-  }, [account, library]);
+  }, [account, library, isVisible]);
 
   const buy = async () => {
     try {
@@ -956,6 +958,7 @@ const Rock = ({ id }) => {
   return (
     <div
       className="card mr-4 mb-4 p-4"
+      ref={setElement}
       style={
         !manage
           ? {
@@ -994,10 +997,49 @@ const Rock = ({ id }) => {
           Owner
         </a>
       )}
+      {!info && (
+        <span className="mb-3">digging...</span>
+      )}
       {renderButton()}
     </div>
   );
 };
+
+const Tabs = ({ setRockRange }) => {
+  const [selected, setSelected] = useState(0)
+
+  return (
+    <>
+      <button
+        className={`button ml-2 ${selected == 0 ? 'is-info' : ''}`}
+        onClick={() => {
+          setSelected(0);
+          setRockRange(0, 99);
+        }}
+      >
+        0-99
+      </button>
+      <button
+        className={`button ml-2 ${selected == 1 ? 'is-info' : ''}`}
+        onClick={() => {
+          setSelected(1);
+          setRockRange(100, 999);
+        }}
+      >
+        100-999
+      </button>
+      <button
+        className={`button ml-2 ${selected == 2 ? 'is-info' : ''}`}
+        onClick={() => {
+          setSelected(2);
+          setRockRange(1000, 9999);
+        }}
+      >
+        1,000-9,999
+      </button>
+    </>
+  )
+}
 
 const Minter = () => {
   const [managingRock, setManagingRock] = useState(false);
@@ -1053,6 +1095,14 @@ const Minter = () => {
   );
 };
 
+const makeRockIDs = (start, end) => {
+  let ids = []
+  for (let i = start; i <= end; i++) {
+    ids.push(i)
+  }
+  return ids
+}
+
 function App() {
   const {
     account,
@@ -1061,7 +1111,8 @@ function App() {
     active,
     chainId: networkId,
   } = useWeb3React();
-  const rocks = Array.from(Array(100).keys());
+  const [rocks, setRocks] = useState(makeRockIDs(0, 99))
+
   if (!account && !active) {
     const knownConnector = localStorage.getItem("connector");
     if (knownConnector === "metamask") {
@@ -1080,6 +1131,10 @@ function App() {
     localStorage.setItem("connector", "");
     deactivate(injected);
   };
+
+  const setRockRange = (start, end) => {
+    setRocks(makeRockIDs(start, end))
+  }
 
   return (
     <>
@@ -1184,10 +1239,20 @@ function App() {
               display: "flex",
               flexWrap: "wrap",
               justifyContent: "center",
+              marginBottom: "3rem",
             }}
           >
-            {rocks.map((_, id) => (
-              <Rock id={id} />
+            <Tabs setRockRange={setRockRange} />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent: "center",
+            }}
+          >
+            {rocks.map((id) => (
+              <Rock id={id} key={id} />
             ))}
           </div>
         </div>
