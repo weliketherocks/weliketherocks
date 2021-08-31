@@ -1288,7 +1288,7 @@ contract OriginalEtherRock is ERC721 {
   constructor() ERC721("Original EtherRock", "WLTR") {}
   
   function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-    require(tokenId <= 99, "Only >99");
+    require(tokenId >= 100, "Only 100+");
     
     string memory baseURI = _baseURI();
     string memory tokenHash;
@@ -1314,46 +1314,46 @@ contract OriginalEtherRock is ERC721 {
     return _totalSupply;
   }
     
-  function wrap(uint256 id) public {
+  function wrap(uint256 tokenId) public {
     // get warden address
     address warden = wardens[_msgSender()];
     require(warden != address(0), "Warden not registered");
-    require(id >= 100, "Only >99 - call rescue");
+    require(tokenId >= 100, "Only 100+ - call rescue");
     
     // claim rock
-    RockWarden(warden).claim(id, rocks);
+    RockWarden(warden).claim(tokenId, rocks);
     
     // mint wrapped rock
-    _mint(_msgSender(), id);
+    _mint(_msgSender(), tokenId);
     
     // increment supply
     _totalSupply += 1;
 
-    emit Wrap(msg.sender, id);
+    emit Wrap(msg.sender, tokenId);
   }
   
-  function unwrap(uint256 id) public {
-    require(_msgSender() == ownerOf(id));
+  function unwrap(uint256 tokenId) public {
+    require(_msgSender() == ownerOf(tokenId));
     
     // burn wrapped rock
-    _burn(id);
+    _burn(tokenId);
     
     // decrement supply
     _totalSupply -= 1;
     
     // send rock to user
-    rocks.giftRock(id, _msgSender());
+    rocks.giftRock(tokenId, _msgSender());
 
-    emit Unwrap(msg.sender, id);
+    emit Unwrap(msg.sender, tokenId);
   }
 
-  function rescue(uint256 id) public {
+  function rescue(uint256 tokenId) public {
     // get warden address
     address warden = wardens[_msgSender()];
     require(warden != address(0), "Warden not registered");
 
     // withdraw rock
-    RockWarden(warden).withdraw(id, rocks);
+    RockWarden(warden).withdraw(tokenId, rocks);
   }
   
   function createWarden() public {
