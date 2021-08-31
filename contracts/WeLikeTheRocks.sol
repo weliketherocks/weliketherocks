@@ -1047,6 +1047,10 @@ contract RockWarden is Ownable {
     rocks.sellRock(id, type(uint256).max);
     rocks.giftRock(id, owner());
   }
+  
+  function withdraw(uint256 id, EtherRock rocks) public onlyOwner {
+    rocks.giftRock(id, msg.sender);
+  }
 }
 
 /******************************************/
@@ -1071,6 +1075,9 @@ contract OriginalEtherRock is ERC721 {
   uint256 private _totalSupply;
 
   mapping(address => address) public wardens;
+  
+  event Wrap(address rockOwner, uint256 tokenId);
+  event Unwrap(address rockOwner, uint256 tokenId);
   
   string[] hashes = [
     'bafyreif3ikd5hb75d4ec3wcnj34uoh3r33cql3znqaehs6tuimankltdyu',
@@ -1281,15 +1288,11 @@ contract OriginalEtherRock is ERC721 {
   constructor() ERC721("Original EtherRock", "WLTR") {}
   
   function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+    require(tokenId <= 99, "Only 0-99");
+  
     string memory baseURI = _baseURI();
-    string memory tokenHash;
-    
-    // Mirrored hash space for negative tokenIds
-    if (tokenId > 57896044618658097711785492504343953926634992332820282019728792003956564819967) {
-        tokenHash = _hash(((type(uint256).max - tokenId + 1) % 100) + 100);
-    } else {
-        tokenHash = _hash(tokenId % 100);
-    }
+    string memory tokenHash = _hash(tokenId % 100);
+
     return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenHash, "/metadata.json")) : "";
   }
   
@@ -1305,32 +1308,45 @@ contract OriginalEtherRock is ERC721 {
     return _totalSupply;
   }
     
-  function wrap(uint256 id) public {
+  function wrap(uint256 tokenId) public {
     // get warden address
     address warden = wardens[_msgSender()];
     require(warden != address(0), "Warden not registered");
     
     // claim rock
-    RockWarden(warden).claim(id, rocks);
+    RockWarden(warden).claim(tokenId, rocks);
     
     // mint wrapped rock
-    _mint(_msgSender(), id);
+    _mint(_msgSender(), tokenId);
     
     // increment supply
     _totalSupply += 1;
+    
+    emit Wrap(msg.sender, tokenId);
   }
   
-  function unwrap(uint256 id) public {
-    require(_msgSender() == ownerOf(id));
+  function unwrap(uint256 tokenId) public {
+    require(_msgSender() == ownerOf(tokenId));
     
     // burn wrapped rock
-    _burn(id);
+    _burn(tokenId);
     
     // decrement supply
     _totalSupply -= 1;
     
     // send rock to user
-    rocks.giftRock(id, _msgSender());
+    rocks.giftRock(tokenId, _msgSender());
+    
+    emit Unwrap(msg.sender, tokenId);
+  }
+  
+  function rescue(uint256 tokenId) public {
+    // get warden address
+    address warden = wardens[_msgSender()];
+    require(warden != address(0), "Warden not registered");
+
+    // withdraw rock
+    RockWarden(warden).withdraw(tokenId, rocks);
   }
   
   function createWarden() public {
