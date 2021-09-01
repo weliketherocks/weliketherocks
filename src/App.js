@@ -547,6 +547,14 @@ const addresses = {
   },
 };
 
+function imgError(image) {
+  console.log("here", image.target.currentSrc);
+  image.src = "";
+  setTimeout(function () {
+    image.src = image.target.currentSrc;
+  }, 1000);
+}
+
 const Rock = ({ id }) => {
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -979,6 +987,7 @@ const Rock = ({ id }) => {
           loading="lazy"
           alt={`rock-${id}`}
           style={{ height: 150 }}
+          onError={imgError}
           src={`https://ipfs.io/ipfs/${images[id]}`}
         />
       )}
@@ -1187,7 +1196,7 @@ function App() {
             }}
           >
             {rocks.map((_, id) => (
-              <Rock id={id} />
+              <Rock key={id} id={id} />
             ))}
           </div>
         </div>
