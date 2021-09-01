@@ -690,7 +690,7 @@ const other = [
 
 const MAX_SALE_FIG = 4;
 
-const WRAPPING_ENABLED = false;
+const WRAPPING_ENABLED = true;
 
 const addresses = {
   rocks: {
@@ -699,7 +699,7 @@ const addresses = {
     default: "0x37504AE0282f5f334ED29b4548646f887977b7cC",
   },
   wrappers: {
-    1: "0xE50ea3978E0902F7287Fd35Bf84864104dF13ba3",
+    1: "0xb895cAffECb62B5E49828c9d64116Fd07Dd33DEF",
     4: "0x689c8E7fA5DD2044F3a8f3465d96E1773fFaE5b8",
   },
   minters: {
@@ -709,11 +709,11 @@ const addresses = {
 };
 
 function imgError(image) {
-  console.log("here", image.target.currentSrc);
+  const id = image.target.alt.replace("rock-", "");
   image.src = "";
   setTimeout(function () {
-    image.src = image.target.currentSrc;
-  }, 1000);
+    image.src = images[id];
+  }, 2000);
 }
 
 const Rock = ({ id }) => {
@@ -925,6 +925,8 @@ const Rock = ({ id }) => {
 
   const priceMaxed = info && info.price.eq(ethers.constants.MaxUint256);
 
+  const canWrap = id < 100;
+
   const renderButton = () => {
     const btnClass = classNames("button is-info", { "is-loading": loading });
     const btnClassM2 = classNames("button is-info mb-2");
@@ -948,7 +950,7 @@ const Rock = ({ id }) => {
                   onClick={() => setUnwrapping(false)}
                   style={{ width: 105 }}
                 >
-                  <i class="fas fa-arrow-left"></i>
+                  <i className="fas fa-arrow-left"></i>
                 </button>
               </>
             );
@@ -996,7 +998,7 @@ const Rock = ({ id }) => {
                   onClick={() => setWrapping(false)}
                   style={{ width: 105 }}
                 >
-                  <i class="fas fa-arrow-left"></i>
+                  <i className="fas fa-arrow-left"></i>
                 </button>
               </>
             );
@@ -1007,7 +1009,7 @@ const Rock = ({ id }) => {
               <>
                 <input
                   style={{ width: 105 }}
-                  class="input mb-2"
+                  className="input mb-2"
                   type="text"
                   value={price}
                   disabled={loading}
@@ -1040,7 +1042,7 @@ const Rock = ({ id }) => {
                   onClick={() => setSelling(false)}
                   style={{ width: 105 }}
                 >
-                  <i class="fas fa-arrow-left"></i>
+                  <i className="fas fa-arrow-left"></i>
                 </button>
               </>
             );
@@ -1056,7 +1058,7 @@ const Rock = ({ id }) => {
               >
                 Selling
               </button>
-              {WRAPPING_ENABLED && (
+              {WRAPPING_ENABLED && canWrap && (
                 <>
                   <button
                     className={btnClassM2}
@@ -1083,7 +1085,7 @@ const Rock = ({ id }) => {
                 onClick={() => setManage(false)}
                 style={{ width: 105 }}
               >
-                <i class="fas fa-arrow-left"></i>
+                <i className="fas fa-arrow-left"></i>
               </button>
             </>
           );
@@ -1098,6 +1100,19 @@ const Rock = ({ id }) => {
             </button>
           );
         }
+      }
+
+      if (info.owner === addresses.wrappers[networkId]) {
+        return (
+          <a
+            className="button is-info"
+            target="_blank"
+            rel="noreferrer"
+            href={`https://opensea.io/assets/0xb895caffecb62b5e49828c9d64116fd07dd33def/${id}`}
+          >
+            Open Sea
+          </a>
+        );
       }
 
       if (info.price.eq(ethers.constants.MaxUint256)) {
@@ -1115,7 +1130,7 @@ const Rock = ({ id }) => {
         : utils.formatUnits(info.price);
       return (
         <button className={btnClass} disabled={loading} onClick={buy}>
-          Buy {formatted} ETH
+          {info.price.isZero() ? "Mint" : `Buy ${formatted} ETH`}
         </button>
       );
     }
@@ -1193,7 +1208,7 @@ const Minter = () => {
         {!managingRock ? (
           <>
             <input
-              class="input"
+              className="input"
               type="text"
               placeholder="rock number"
               style={{ width: 200 }}
@@ -1254,19 +1269,19 @@ function App() {
   return (
     <>
       <div className="container">
-        <nav class="navbar" role="navigation" aria-label="main navigation">
-          <div class="navbar-brand">
-            <a class="navbar-item" href="https://weliketherocks.com">
+        <nav className="navbar" role="navigation" aria-label="main navigation">
+          <div className="navbar-brand">
+            <a className="navbar-item" href="https://weliketherocks.com">
               We Like The Rocks
             </a>
           </div>
 
-          <div class="navbar-end">
-            <div class="navbar-item">
-              <div class="buttons">
+          <div className="navbar-end">
+            <div className="navbar-item">
+              <div className="buttons">
                 {!account && (
                   <button
-                    class="button is-info is-light"
+                    className="button is-info is-light"
                     onClick={login}
                     disabled={!window.ethereum}
                   >
@@ -1275,7 +1290,7 @@ function App() {
                 )}
                 {account && (
                   <button
-                    class="button is-info is-light"
+                    className="button is-info is-light"
                     onClick={logout}
                     disabled={!window.ethereum}
                   >
@@ -1292,35 +1307,38 @@ function App() {
         </nav>
       </div>
 
-      <section class="hero is-info">
-        <div class="hero-body">
-          <p class="title mb-6" style={{ textAlign: "center" }}>
+      <section className="hero is-info">
+        <div className="hero-body">
+          <p className="title mb-6" style={{ textAlign: "center" }}>
             Own blockchain history.
           </p>
-          <p class="subtitle" style={{ textAlign: "center" }}>
+          <p className="subtitle" style={{ textAlign: "center" }}>
             One of the earliest NFTs to ever exist, deployed on Dec 25, 2017 at
             9:01:40 AM
           </p>
-          <p class="subtitle" style={{ textAlign: "center", color: "white" }}>
-            <span class="icon mr-6">
+          <p
+            className="subtitle"
+            style={{ textAlign: "center", color: "white" }}
+          >
+            <span className="icon mr-6">
               <a
                 target="_blank"
                 rel="noreferrer"
                 href="https://discord.gg/q8aPXVCQDu"
               >
-                <i class="fab fa-discord"></i>
+                <i className="fab fa-discord"></i>
               </a>
             </span>
-            <span class="icon mr-6">
+            <span className="icon mr-6">
               <a
                 target="_blank"
                 rel="noreferrer"
                 href="https://twitter.com/weliketherocks"
               >
-                <i class="fab fa-twitter"></i>
+                <i className="fab fa-twitter"></i>
               </a>
             </span>
-            <span class="icon">
+            <span className="icon">
               <a
                 target="_blank"
                 rel="noreferrer"
@@ -1330,15 +1348,15 @@ function App() {
                   addresses.rocks[networkId] || addresses.rocks.default
                 }#code`}
               >
-                <i class="fab fa-ethereum"></i>
+                <i className="fab fa-ethereum"></i>
               </a>
             </span>
           </p>
         </div>
       </section>
 
-      <section class="section">
-        <div class="container is-max-desktop">
+      <section className="section">
+        <div className="container is-max-desktop">
           <div
             style={{
               display: "flex",
