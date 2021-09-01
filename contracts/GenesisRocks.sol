@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface EtherRock {
   function sellRock (uint rockNumber, uint price) external;
-  function dontSellRock (uint rockNumber) external;
   function giftRock (uint rockNumber, address receiver) external;
 }
 
