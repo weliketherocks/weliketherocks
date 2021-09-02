@@ -1150,6 +1150,10 @@ const Rock = ({ id, profile }) => {
     return <button className="button is-info is-loading">-</button>;
   };
 
+  if ((profile && !info) || (profile && info.owner !== account)) {
+    return <></>;
+  }
+
   return (
     <div
       className="card mr-4 mb-4 p-4"
@@ -1181,7 +1185,9 @@ const Rock = ({ id, profile }) => {
         />
       )}
 
-      <p className="mb-3">Rock {id}</p>
+      <p className="mb-3" style={{ wordBreak: "break-all" }}>
+        Rock {id}
+      </p>
       {info && !manage && (
         <a
           target="_blank"
@@ -1255,6 +1261,7 @@ const MyRocks = () => {
   const { account, library, chainId: networkId } = useWeb3React();
 
   const [rocks, setRocks] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const getEtherRockContract = () => {
     const signer = account ? library?.getSigner(account) : library;
@@ -1264,7 +1271,7 @@ const MyRocks = () => {
   const getRockId = async (contract, i) => {
     try {
       const id = await contract.rockOwners(account, i);
-      return id.toNumber();
+      return id.toString();
     } catch (e) {}
   };
 
@@ -1284,19 +1291,20 @@ const MyRocks = () => {
         );
         for (let j = 0; j < response.length; j++) {
           const num = response[j];
-          if (typeof num === "number") {
+          if (typeof num === "string") {
             if (!r.includes(num)) {
               r = [...r, num];
               setRocks(r);
             }
           } else {
             search = false;
-            return;
+            setLoading(false);
           }
         }
         i += limit;
       } catch (e) {
         search = false;
+        setLoading(false);
       }
     }
   };
@@ -1311,16 +1319,37 @@ const MyRocks = () => {
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        justifyContent: "center",
-      }}
-    >
-      {rocks.map((id) => (
-        <Rock key={id} id={id} profile />
-      ))}
+    <div>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          marginBottom: 5,
+        }}
+      >
+        {loading && (
+          <progress
+            className="progress is-small is-primary"
+            max="100"
+            style={{ height: 2 }}
+          >
+            15%
+          </progress>
+        )}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "center",
+        }}
+      >
+        {rocks.map((id) => (
+          <Rock key={id} id={id} profile />
+        ))}
+      </div>
     </div>
   );
 };
