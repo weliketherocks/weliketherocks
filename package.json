@@ -12,6 +12,7 @@
     "@web3-react/core": "^6.1.9",
     "@web3-react/injected-connector": "^6.0.7",
     "@web3-react/network-connector": "^6.1.9",
+    "base64-sol": "^1.0.1",
     "bulma": "^0.9.3",
     "classnames": "^2.3.1",
     "ethers": "^5.4.4",

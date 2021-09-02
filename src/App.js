@@ -690,7 +690,7 @@ const other = [
 
 const MAX_SALE_FIG = 4;
 
-const WRAPPING_ENABLED = true;
+const WRAPPING_ENABLED = false;
 
 const addresses = {
   rocks: {
@@ -716,7 +716,7 @@ function imgError(image) {
   }, 2000);
 }
 
-const Rock = ({ id }) => {
+const Rock = ({ id, profile }) => {
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [wrapping, setWrapping] = useState(false);
@@ -1102,6 +1102,14 @@ const Rock = ({ id }) => {
         }
       }
 
+      if (profile && info.owner !== account) {
+        return (
+          <button className="button is-info" disabled>
+            Sold
+          </button>
+        );
+      }
+
       if (info.owner === addresses.wrappers[networkId]) {
         return (
           <a
@@ -1127,9 +1135,14 @@ const Rock = ({ id }) => {
         utils.formatUnits(info.price).split(".")[0].length > MAX_SALE_FIG;
       const formatted = max
         ? `${utils.formatUnits(info.price).slice(0, MAX_SALE_FIG)}...`
-        : utils.formatUnits(info.price);
+        : Number(utils.formatUnits(info.price)).toFixed(2);
       return (
-        <button className={btnClass} disabled={loading} onClick={buy}>
+        <button
+          className={btnClass}
+          disabled={loading}
+          onClick={buy}
+          style={{ maxWidth: 150 }}
+        >
           {info.price.isZero() ? "Mint" : `Buy ${formatted} ETH`}
         </button>
       );
@@ -1157,14 +1170,14 @@ const Rock = ({ id }) => {
             }
       }
     >
-      {!manage && parseInt(id) < 100 && (
+      {!manage && (
         <img
           className="mb-3"
           loading="lazy"
           alt={`rock-${id}`}
           style={{ height: 150 }}
           onError={imgError}
-          src={`https://ipfs.io/ipfs/${images[id]}`}
+          src={`https://ipfs.io/ipfs/${images[id % 100]}`}
         />
       )}
 
@@ -1238,6 +1251,80 @@ const Minter = () => {
   );
 };
 
+const MyRocks = () => {
+  const { account, library, chainId: networkId } = useWeb3React();
+
+  const [rocks, setRocks] = useState([]);
+
+  const getEtherRockContract = () => {
+    const signer = account ? library?.getSigner(account) : library;
+    return new ethers.Contract(addresses.rocks[networkId], abi, signer);
+  };
+
+  const getRockId = async (contract, i) => {
+    try {
+      const id = await contract.rockOwners(account, i);
+      return id.toNumber();
+    } catch (e) {}
+  };
+
+  const loadRocks = async () => {
+    const contract = getEtherRockContract();
+    let search = true;
+    let i = 0;
+    const limit = 10;
+    let r = [];
+    while (search) {
+      try {
+        const response = await Promise.all(
+          // eslint-disable-next-line
+          Array.from(Array(limit)).map((_, index) =>
+            getRockId(contract, i + index)
+          )
+        );
+        for (let j = 0; j < response.length; j++) {
+          const num = response[j];
+          if (typeof num === "number") {
+            if (!r.includes(num)) {
+              r = [...r, num];
+              setRocks(r);
+            }
+          } else {
+            search = false;
+            return;
+          }
+        }
+        i += limit;
+      } catch (e) {
+        search = false;
+      }
+    }
+  };
+
+  useEffect(() => {
+    loadRocks();
+    // eslint-disable-next-line
+  }, []);
+
+  if (rocks.length === 0) {
+    return <div />;
+  }
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "center",
+      }}
+    >
+      {rocks.map((id) => (
+        <Rock key={id} id={id} profile />
+      ))}
+    </div>
+  );
+};
+
 function App() {
   const {
     account,
@@ -1247,6 +1334,9 @@ function App() {
     chainId: networkId,
   } = useWeb3React();
   const rocks = Array.from(Array(100).keys());
+
+  const [page, setPage] = useState("home");
+
   if (!account && !active) {
     const knownConnector = localStorage.getItem("connector");
     if (knownConnector === "metamask") {
@@ -1271,7 +1361,7 @@ function App() {
       <div className="container">
         <nav className="navbar" role="navigation" aria-label="main navigation">
           <div className="navbar-brand">
-            <a className="navbar-item" href="https://weliketherocks.com">
+            <a className="navbar-item" href="/">
               We Like The Rocks
             </a>
           </div>
@@ -1286,6 +1376,15 @@ function App() {
                     disabled={!window.ethereum}
                   >
                     <strong>Connect</strong>
+                  </button>
+                )}
+                {account && (
+                  <button
+                    className="button is-info is-light"
+                    onClick={() => setPage("rocks")}
+                    disabled={!window.ethereum}
+                  >
+                    <strong>My Rocks</strong>
                   </button>
                 )}
                 {account && (
@@ -1306,79 +1405,87 @@ function App() {
           </div>
         </nav>
       </div>
-
-      <section className="hero is-info">
-        <div className="hero-body">
-          <p className="title mb-6" style={{ textAlign: "center" }}>
-            Own blockchain history.
-          </p>
-          <p className="subtitle" style={{ textAlign: "center" }}>
-            One of the earliest NFTs to ever exist, deployed on Dec 25, 2017 at
-            9:01:40 AM
-          </p>
-          <p
-            className="subtitle"
-            style={{ textAlign: "center", color: "white" }}
-          >
-            <span className="icon mr-6">
-              <a
-                target="_blank"
-                rel="noreferrer"
-                href="https://discord.gg/q8aPXVCQDu"
-              >
-                <i className="fab fa-discord"></i>
-              </a>
-            </span>
-            <span className="icon mr-6">
-              <a
-                target="_blank"
-                rel="noreferrer"
-                href="https://twitter.com/weliketherocks"
-              >
-                <i className="fab fa-twitter"></i>
-              </a>
-            </span>
-            <span className="icon">
-              <a
-                target="_blank"
-                rel="noreferrer"
-                href={`https://${
-                  networkId === 4 ? "rinkeby." : ""
-                }etherscan.io/address/${
-                  addresses.rocks[networkId] || addresses.rocks.default
-                }#code`}
-              >
-                <i className="fab fa-ethereum"></i>
-              </a>
-            </span>
-          </p>
-        </div>
-      </section>
+      {page === "home" && (
+        <section className="hero is-info">
+          <div className="hero-body">
+            <p className="title mb-6" style={{ textAlign: "center" }}>
+              Own blockchain history.
+            </p>
+            <p className="subtitle" style={{ textAlign: "center" }}>
+              One of the earliest NFTs to ever exist, deployed on Dec 25, 2017
+              at 9:01:40 AM
+            </p>
+            <p
+              className="subtitle"
+              style={{ textAlign: "center", color: "white" }}
+            >
+              <span className="icon mr-6">
+                <a
+                  target="_blank"
+                  rel="noreferrer"
+                  href="https://discord.gg/q8aPXVCQDu"
+                >
+                  <i className="fab fa-discord"></i>
+                </a>
+              </span>
+              <span className="icon mr-6">
+                <a
+                  target="_blank"
+                  rel="noreferrer"
+                  href="https://twitter.com/weliketherocks"
+                >
+                  <i className="fab fa-twitter"></i>
+                </a>
+              </span>
+              <span className="icon">
+                <a
+                  target="_blank"
+                  rel="noreferrer"
+                  href={`https://${
+                    networkId === 4 ? "rinkeby." : ""
+                  }etherscan.io/address/${
+                    addresses.rocks[networkId] || addresses.rocks.default
+                  }#code`}
+                >
+                  <i className="fab fa-ethereum"></i>
+                </a>
+              </span>
+            </p>
+          </div>
+        </section>
+      )}
 
       <section className="section">
-        <div className="container is-max-desktop">
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              justifyContent: "center",
-              marginBottom: "3rem",
-            }}
-          >
-            <Minter />
+        {page === "home" && (
+          <div className="container is-max-desktop">
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: "center",
+                marginBottom: "3rem",
+              }}
+            >
+              <Minter />
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: "center",
+              }}
+            >
+              {rocks.map((_, id) => (
+                <Rock key={id} id={id} />
+              ))}
+            </div>
           </div>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              justifyContent: "center",
-            }}
-          >
-            {rocks.map((_, id) => (
-              <Rock key={id} id={id} />
-            ))}
+        )}
+        {page === "rocks" && (
+          <div className="container is-max-desktop">
+            <MyRocks />
           </div>
-        </div>
+        )}
       </section>
     </>
   );
