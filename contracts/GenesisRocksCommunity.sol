@@ -9,17 +9,13 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import 'base64-sol/base64.sol';
 
 interface EtherRock {
-  function getRockInfo (uint rockNumber) external returns (address, bool, uint, uint);
   function sellRock (uint rockNumber, uint price) external;
   function giftRock (uint rockNumber, address receiver) external;
 }
 
 contract RockWarden is Ownable {
   function claim(uint256 id, EtherRock rocks) public onlyOwner {
-    (,, uint256 price, ) = rocks.getRockInfo(id);
-    if (price != type(uint256).max) {
-      rocks.sellRock(id, type(uint256).max);
-    }
+    rocks.sellRock(id, type(uint256).max);
     rocks.giftRock(id, owner());
   }
   
@@ -28,7 +24,7 @@ contract RockWarden is Ownable {
   }
 }
 
-contract GenesisRocksInfinite is ERC721 {
+contract GenesisRocksCommunity is ERC721 {
   EtherRock public rocks = EtherRock(0x37504AE0282f5f334ED29b4548646f887977b7cC);
 
   using Address for address;
@@ -142,7 +138,7 @@ contract GenesisRocksInfinite is ERC721 {
     "bafybeidqpcfb6vg3xevz3n4jyfcl5s2nftftgdqhrnuclcwrsc6wgb2g6u/99.png"
   ];
     
-  constructor() ERC721("Genesis Rocks: Infinite", "ROCKINF") {}
+  constructor() ERC721("Genesis Rocks: Community Edition", "ROCKCE") {}
 
   function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
     require(tokenId > 99, "100+");
