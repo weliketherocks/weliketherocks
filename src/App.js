@@ -690,7 +690,7 @@ const other = [
 
 const MAX_SALE_FIG = 4;
 
-const WRAPPING_ENABLED = false;
+const WRAPPING_ENABLED = true;
 
 const addresses = {
   rocks: {
@@ -708,6 +708,16 @@ const addresses = {
   },
 };
 
+const OG_WRAPPER = "0xb895cAffECb62B5E49828c9d64116Fd07Dd33DEF";
+const COMMUNITY_WRAPPER = "0x47e765EF1673Fd22c61641f272dE57865811d7A4";
+
+const getWrapperAddress = (id) => {
+  if (parseInt(id) < 100) {
+    return OG_WRAPPER;
+  }
+  return COMMUNITY_WRAPPER;
+};
+
 function imgError(image) {
   const id = image.target.alt.replace("rock-", "");
   image.src = "";
@@ -715,6 +725,8 @@ function imgError(image) {
     image.src = images[id];
   }, 2000);
 }
+
+const wait = () => new Promise((resolve) => setTimeout(resolve, 1000));
 
 const Rock = ({ id, profile }) => {
   const [info, setInfo] = useState(null);
@@ -724,7 +736,6 @@ const Rock = ({ id, profile }) => {
   const [manage, setManage] = useState(false);
   const [selling, setSelling] = useState(false);
   const [price, setPrice] = useState("");
-
   const { account, library, chainId: networkId } = useWeb3React();
 
   const getEtherRockContract = () => {
@@ -733,12 +744,9 @@ const Rock = ({ id, profile }) => {
   };
 
   const getWrapperContract = () => {
+    const address = getWrapperAddress(id);
     const signer = account ? library?.getSigner(account) : library;
-    return new ethers.Contract(
-      addresses.wrappers[networkId],
-      wrapperABI,
-      signer
-    );
+    return new ethers.Contract(address, wrapperABI, signer);
   };
 
   const getMinterContract = () => {
@@ -776,7 +784,7 @@ const Rock = ({ id, profile }) => {
     } else if (result.owner === account) {
       setInfo({ ...result, unwrapped: true, isOwner: true, isSetup });
     } else {
-      setInfo(result);
+      setInfo({ ...result });
     }
   };
 
@@ -925,8 +933,6 @@ const Rock = ({ id, profile }) => {
 
   const priceMaxed = info && info.price.eq(ethers.constants.MaxUint256);
 
-  const canWrap = id < 100;
-
   const renderButton = () => {
     const btnClass = classNames("button is-info", { "is-loading": loading });
     const btnClassM2 = classNames("button is-info mb-2");
@@ -1058,7 +1064,7 @@ const Rock = ({ id, profile }) => {
               >
                 Selling
               </button>
-              {WRAPPING_ENABLED && canWrap && (
+              {WRAPPING_ENABLED && (
                 <>
                   <button
                     className={btnClassM2}
@@ -1150,7 +1156,7 @@ const Rock = ({ id, profile }) => {
     return <button className="button is-info is-loading">-</button>;
   };
 
-  if ((profile && !info) || (profile && info.owner !== account)) {
+  if ((profile && !info) || (profile && !info.isOwner)) {
     return <></>;
   }
 
@@ -1272,7 +1278,12 @@ const MyRocks = () => {
     try {
       const id = await contract.rockOwners(account, i);
       return id.toString();
-    } catch (e) {}
+    } catch (e) {
+      if (e.message.includes("header not found")) {
+        await wait();
+        return getRockId(contract, i);
+      }
+    }
   };
 
   const loadRocks = async () => {
@@ -1391,7 +1402,7 @@ function App() {
         <nav className="navbar" role="navigation" aria-label="main navigation">
           <div className="navbar-brand">
             <a className="navbar-item" href="/">
-              We Like The Rocks
+              Genesis Rocks
             </a>
           </div>
 
@@ -1438,7 +1449,7 @@ function App() {
         <section className="hero is-info">
           <div className="hero-body">
             <p className="title mb-6" style={{ textAlign: "center" }}>
-              Own blockchain history.
+              Blockchain history.
             </p>
             <p className="subtitle" style={{ textAlign: "center" }}>
               One of the earliest NFTs to ever exist, deployed on Dec 25, 2017
@@ -1480,6 +1491,23 @@ function App() {
                 </a>
               </span>
             </p>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <a
+                target="_blank"
+                rel="noreferrer"
+                href="https://opensea.io/collection/genesisrocks"
+                className="subtitle"
+                style={{
+                  textAlign: "center",
+                  color: "white",
+                  marginTop: 10,
+                  fontSize: 24,
+                  fontWeight: 900,
+                }}
+              >
+                View on OpenSea
+              </a>
+            </div>
           </div>
         </section>
       )}
