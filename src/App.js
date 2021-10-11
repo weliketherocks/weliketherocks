@@ -1401,9 +1401,12 @@ function App() {
       <div className="container">
         <nav className="navbar" role="navigation" aria-label="main navigation">
           <div className="navbar-brand">
-            <a className="navbar-item" href="/">
+            <div
+              className="navbar-item is-clickable"
+              onClick={() => setPage("home")}
+            >
               Genesis Rocks
-            </a>
+            </div>
           </div>
 
           <div className="navbar-end">

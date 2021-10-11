@@ -2,6 +2,7 @@
   "name": "weliketherocks",
   "version": "0.1.0",
   "private": true,
+  "homepage": ".",
   "dependencies": {
     "@fortawesome/fontawesome-free": "^5.15.4",
     "@openzeppelin/contracts": "^4.2.0",
