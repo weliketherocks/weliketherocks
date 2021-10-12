@@ -688,6 +688,103 @@ const other = [
   },
 ];
 
+const rockExAbi = [
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "previousOwner",
+        type: "address",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "newOwner",
+        type: "address",
+      },
+    ],
+    name: "OwnershipTransferred",
+    type: "event",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "id",
+        type: "uint256",
+      },
+    ],
+    name: "buy",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "id",
+        type: "uint256",
+      },
+    ],
+    name: "getPrice",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "owner",
+    outputs: [
+      {
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "renounceOwnership",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "newOwner",
+        type: "address",
+      },
+    ],
+    name: "transferOwnership",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+];
+
 const MAX_SALE_FIG = 4;
 
 const WRAPPING_ENABLED = true;
@@ -710,6 +807,7 @@ const addresses = {
 
 const OG_WRAPPER = "0xb895cAffECb62B5E49828c9d64116Fd07Dd33DEF";
 const COMMUNITY_WRAPPER = "0x47e765EF1673Fd22c61641f272dE57865811d7A4";
+const ROCKEX = "0xe0bCF6D28e475232440cd03974a340ce9Ea24c10";
 
 const getWrapperAddress = (id) => {
   if (parseInt(id) < 100) {
@@ -754,9 +852,15 @@ const Rock = ({ id, profile }) => {
     return new ethers.Contract(addresses.minters[networkId], other, signer);
   };
 
+  const getRockExContract = () => {
+    const signer = account ? library?.getSigner(account) : library;
+    return new ethers.Contract(ROCKEX, rockExAbi, signer);
+  };
+
   const fetchInfo = async () => {
     const contract = getEtherRockContract();
     const wrapper = getWrapperContract();
+    const rockEx = getRockExContract();
 
     const getOwner = async () => {
       try {
@@ -766,10 +870,18 @@ const Rock = ({ id, profile }) => {
       } catch (e) {}
     };
 
-    const [owner, warden, result] = await Promise.all([
+    const getPricing = async (id) => {
+      try {
+        const response = await rockEx.getPrice(id);
+        return { price: response[0], fee: response[1], total: response[2] };
+      } catch (e) {}
+    };
+
+    const [owner, warden, result, pricing] = await Promise.all([
       getOwner(),
       account && WRAPPING_ENABLED ? await wrapper.wardens(account) : null,
       await contract.rocks(id),
+      getPricing(id),
     ]);
 
     const isSetup = warden !== ethers.constants.AddressZero;
@@ -778,13 +890,13 @@ const Rock = ({ id, profile }) => {
       result.owner === warden &&
       result.owner !== ethers.constants.AddressZero
     ) {
-      setInfo({ ...result, approved: true, isOwner: true, isSetup });
+      setInfo({ ...result, approved: true, isOwner: true, isSetup, pricing });
     } else if (owner === account) {
-      setInfo({ ...result, wrapped: true, isOwner: true, isSetup });
+      setInfo({ ...result, wrapped: true, isOwner: true, isSetup, pricing });
     } else if (result.owner === account) {
-      setInfo({ ...result, unwrapped: true, isOwner: true, isSetup });
+      setInfo({ ...result, unwrapped: true, isOwner: true, isSetup, pricing });
     } else {
-      setInfo({ ...result });
+      setInfo({ ...result, pricing });
     }
   };
 
@@ -800,14 +912,15 @@ const Rock = ({ id, profile }) => {
       if (account) {
         setLoading(true);
 
-        const contract = getEtherRockContract();
+        const rockEx = getRockExContract();
+
         let tx;
         if (info.price.isZero()) {
           const minter = getMinterContract();
           tx = await minter.buy(id);
         } else {
-          tx = await contract.buyRock(id, {
-            value: info.price,
+          tx = await rockEx.buy(id, {
+            value: info.pricing.total,
           });
         }
         await tx.wait();
@@ -1011,6 +1124,9 @@ const Rock = ({ id, profile }) => {
           }
 
           if (selling) {
+            const placeholder = info.price.eq(ethers.constants.MaxUint256)
+              ? "Enter Price"
+              : `${utils.formatUnits(info.price)} ETH`;
             return (
               <>
                 <input
@@ -1022,8 +1138,11 @@ const Rock = ({ id, profile }) => {
                   onChange={(e) => {
                     setPrice(e.target.value);
                   }}
-                  placeholder={`${utils.formatUnits(info.price)} ETH`}
+                  placeholder={placeholder}
                 ></input>
+                <small className="mb-3">
+                  2% of each sale goes to the Genesis Rocks DAO.
+                </small>
                 <button
                   className={btnClassM2}
                   disabled={loading || !price}
@@ -1137,11 +1256,11 @@ const Rock = ({ id, profile }) => {
         );
       }
 
-      const max =
-        utils.formatUnits(info.price).split(".")[0].length > MAX_SALE_FIG;
+      const total = info.pricing ? info.pricing.total : info.price;
+      const max = utils.formatUnits(total).split(".")[0].length > MAX_SALE_FIG;
       const formatted = max
-        ? `${utils.formatUnits(info.price).slice(0, MAX_SALE_FIG)}...`
-        : Number(utils.formatUnits(info.price)).toFixed(2);
+        ? `${utils.formatUnits(total).slice(0, MAX_SALE_FIG)}...`
+        : Number(utils.formatUnits(total)).toFixed(2);
       return (
         <button
           className={btnClass}
@@ -1149,7 +1268,7 @@ const Rock = ({ id, profile }) => {
           onClick={buy}
           style={{ maxWidth: 150 }}
         >
-          {info.price.isZero() ? "Mint" : `Buy ${formatted} ETH`}
+          {total.isZero() ? "Mint" : `Buy ${formatted} ETH`}
         </button>
       );
     }
