@@ -1515,6 +1515,12 @@ function App() {
     deactivate(injected);
   };
 
+  const codeHref = `https://${
+    networkId === 4 ? "rinkeby." : ""
+  }etherscan.io/address/${
+    addresses.rocks[networkId] || addresses.rocks.default
+  }#code`;
+
   return (
     <>
       <div className="container">
@@ -1573,9 +1579,39 @@ function App() {
             <p className="title mb-6" style={{ textAlign: "center" }}>
               Blockchain history.
             </p>
-            <p className="subtitle" style={{ textAlign: "center" }}>
+            <p className="subtitle mb-3" style={{ textAlign: "center" }}>
               One of the earliest NFTs to ever exist, deployed on Dec 25, 2017
               at 9:01:40 AM
+            </p>
+            <p style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+              Please{" "}
+              <a
+                className="has-text-primary"
+                target="_blank"
+                rel="noreferrer"
+                href="https://decrypt.co/79665/million-dollar-etherrock-original-contract-lets-anyone-mint-free-rock-nfts"
+              >
+                DYOR
+              </a>
+              , read the{" "}
+              <a
+                className="has-text-primary"
+                target="_blank"
+                rel="noreferrer"
+                href={codeHref}
+              >
+                smart contract
+              </a>
+              , and{" "}
+              <a
+                className="has-text-primary"
+                target="_blank"
+                rel="noreferrer"
+                href="https://discord.com/invite/GenesisRocks"
+              >
+                join the community
+              </a>{" "}
+              before interacting.
             </p>
             <p
               className="subtitle"
@@ -1585,7 +1621,7 @@ function App() {
                 <a
                   target="_blank"
                   rel="noreferrer"
-                  href="https://discord.gg/q8aPXVCQDu"
+                  href="https://discord.com/invite/GenesisRocks"
                 >
                   <i className="fab fa-discord"></i>
                 </a>
@@ -1600,19 +1636,12 @@ function App() {
                 </a>
               </span>
               <span className="icon">
-                <a
-                  target="_blank"
-                  rel="noreferrer"
-                  href={`https://${
-                    networkId === 4 ? "rinkeby." : ""
-                  }etherscan.io/address/${
-                    addresses.rocks[networkId] || addresses.rocks.default
-                  }#code`}
-                >
+                <a target="_blank" rel="noreferrer" href={codeHref}>
                   <i className="fab fa-ethereum"></i>
                 </a>
               </span>
             </p>
+
             <div style={{ display: "flex", justifyContent: "center" }}>
               <a
                 target="_blank"
