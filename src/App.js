@@ -806,14 +806,16 @@ const addresses = {
 };
 
 const OG_WRAPPER = "0xb895cAffECb62B5E49828c9d64116Fd07Dd33DEF";
-const COMMUNITY_WRAPPER = "0x47e765EF1673Fd22c61641f272dE57865811d7A4";
+const COMMUNITY_WRAPPER = "0x39b780E8062CE299ab60ed3D48F447e97511a2eD";
 const ROCKEX = "0xe0bCF6D28e475232440cd03974a340ce9Ea24c10";
 
 const getWrapperAddress = (id) => {
   if (parseInt(id) < 100) {
     return OG_WRAPPER;
   }
-  return COMMUNITY_WRAPPER;
+  if (parseInt(id) < 10000) {
+    return COMMUNITY_WRAPPER;
+  }
 };
 
 function imgError(image) {
@@ -843,8 +845,10 @@ const Rock = ({ id, profile }) => {
 
   const getWrapperContract = () => {
     const address = getWrapperAddress(id);
-    const signer = account ? library?.getSigner(account) : library;
-    return new ethers.Contract(address, wrapperABI, signer);
+    if (address) {
+      const signer = account ? library?.getSigner(account) : library;
+      return new ethers.Contract(address, wrapperABI, signer);
+    }
   };
 
   const getMinterContract = () => {
@@ -864,7 +868,7 @@ const Rock = ({ id, profile }) => {
 
     const getOwner = async () => {
       try {
-        if (WRAPPING_ENABLED) {
+        if (WRAPPING_ENABLED && wrapper) {
           return await wrapper.ownerOf(id);
         }
       } catch (e) {}
@@ -879,7 +883,9 @@ const Rock = ({ id, profile }) => {
 
     const [owner, warden, result, pricing] = await Promise.all([
       getOwner(),
-      account && WRAPPING_ENABLED ? await wrapper.wardens(account) : null,
+      account && WRAPPING_ENABLED && wrapper
+        ? await wrapper.wardens(account)
+        : null,
       await contract.rocks(id),
       getPricing(id),
     ]);
@@ -1045,6 +1051,7 @@ const Rock = ({ id, profile }) => {
   };
 
   const priceMaxed = info && info.price.eq(ethers.constants.MaxUint256);
+  const canWrap = parseInt(id) < 10000;
 
   const renderButton = () => {
     const btnClass = classNames("button is-info", { "is-loading": loading });
@@ -1105,7 +1112,9 @@ const Rock = ({ id, profile }) => {
                 </button>
                 <button
                   className={btnClassM2}
-                  disabled={loading || !info.approved || !priceMaxed}
+                  disabled={
+                    loading || !info.approved || !priceMaxed || !canWrap
+                  }
                   onClick={wrap}
                   style={{ width: 105 }}
                 >
@@ -1183,7 +1192,7 @@ const Rock = ({ id, profile }) => {
               >
                 Selling
               </button>
-              {WRAPPING_ENABLED && (
+              {WRAPPING_ENABLED && canWrap && (
                 <>
                   <button
                     className={btnClassM2}
@@ -1362,7 +1371,11 @@ const Minter = () => {
             <button
               style={{ width: 92 }}
               className="button ml-2"
-              disabled={!numManage || parseInt(numManage) < 100}
+              disabled={
+                !numManage ||
+                parseInt(numManage) < 100 ||
+                parseInt(numManage) > 9999
+              }
               onClick={manageRock}
             >
               View
@@ -1444,7 +1457,16 @@ const MyRocks = () => {
     // eslint-disable-next-line
   }, []);
 
-  if (rocks.length === 0) {
+  const filtered = rocks.filter((id) => {
+    try {
+      const parsed = parseInt(id);
+      return parsed < 10000;
+    } catch (e) {
+      return false;
+    }
+  });
+
+  if (filtered.length === 0) {
     return <div />;
   }
 
@@ -1476,7 +1498,7 @@ const MyRocks = () => {
           justifyContent: "center",
         }}
       >
-        {rocks.map((id) => (
+        {filtered.map((id) => (
           <Rock key={id} id={id} profile />
         ))}
       </div>
