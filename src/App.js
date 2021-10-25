@@ -785,6 +785,98 @@ const rockExAbi = [
   },
 ];
 
+const HELPER_ABI = [
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "id",
+        type: "uint256",
+      },
+    ],
+    name: "register",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256[]",
+        name: "ids",
+        type: "uint256[]",
+      },
+    ],
+    name: "registerMany",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "id",
+        type: "uint256",
+      },
+    ],
+    name: "wrap",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256[]",
+        name: "ids",
+        type: "uint256[]",
+      },
+    ],
+    name: "wrapMany",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    stateMutability: "nonpayable",
+    type: "constructor",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    name: "owners",
+    outputs: [
+      {
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "warden",
+    outputs: [
+      {
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+];
+
 const MAX_SALE_FIG = 4;
 
 const WRAPPING_ENABLED = true;
@@ -808,6 +900,7 @@ const addresses = {
 const OG_WRAPPER = "0xb895cAffECb62B5E49828c9d64116Fd07Dd33DEF";
 const COMMUNITY_WRAPPER = "0x39b780E8062CE299ab60ed3D48F447e97511a2eD";
 const ROCKEX = "0xe0bCF6D28e475232440cd03974a340ce9Ea24c10";
+const HELPER = "0x5047aA3B10286Fe2C9B98972FF4e352EEfcF4dfE";
 
 const getWrapperAddress = (id) => {
   if (parseInt(id) < 100) {
@@ -861,10 +954,19 @@ const Rock = ({ id, profile }) => {
     return new ethers.Contract(ROCKEX, rockExAbi, signer);
   };
 
+  const getHelper = () => {
+    const signer = account ? library?.getSigner(account) : library;
+    return new ethers.Contract(HELPER, HELPER_ABI, signer);
+  };
+
+  const isCommunity = parseInt(id) > 99 && parseInt(id) < 10000;
+  const DEFAULT_WARDEN = "0x572C01D2810597c38f6438C5e3730598a42283a6";
+
   const fetchInfo = async () => {
     const contract = getEtherRockContract();
     const wrapper = getWrapperContract();
     const rockEx = getRockExContract();
+    const helper = getHelper();
 
     const getOwner = async () => {
       try {
@@ -881,16 +983,21 @@ const Rock = ({ id, profile }) => {
       } catch (e) {}
     };
 
-    const [owner, warden, result, pricing] = await Promise.all([
+    const [owner, warden, result, pricing, ownedBy] = await Promise.all([
       getOwner(),
       account && WRAPPING_ENABLED && wrapper
-        ? await wrapper.wardens(account)
+        ? isCommunity
+          ? DEFAULT_WARDEN
+          : await wrapper.wardens(account)
         : null,
       await contract.rocks(id),
       getPricing(id),
+      isCommunity && helper.owners(id),
     ]);
 
-    const isSetup = warden !== ethers.constants.AddressZero;
+    const isSetup = isCommunity
+      ? ownedBy === account
+      : warden !== ethers.constants.AddressZero;
 
     if (
       result.owner === warden &&
@@ -943,11 +1050,17 @@ const Rock = ({ id, profile }) => {
       if (account) {
         setLoading(true);
 
+        let warden;
+
         // get wrapper
-        const wrapper = getWrapperContract();
-        const warden = await wrapper.wardens(account);
-        if (warden === ethers.constants.AddressZero) {
-          throw new Error("Warden is wrong");
+        if (isCommunity) {
+          warden = DEFAULT_WARDEN;
+        } else {
+          const wrapper = getWrapperContract();
+          warden = await wrapper.wardens(account);
+          if (warden === ethers.constants.AddressZero) {
+            throw new Error("Warden is wrong");
+          }
         }
 
         // approve
@@ -984,9 +1097,14 @@ const Rock = ({ id, profile }) => {
     try {
       if (account) {
         setLoading(true);
-
-        const wrapper = getWrapperContract();
-        const tx = await wrapper.wrap(id);
+        let tx;
+        if (isCommunity) {
+          const helper = getHelper();
+          tx = await helper.wrap(id);
+        } else {
+          const wrapper = getWrapperContract();
+          tx = await wrapper.wrap(id);
+        }
 
         await tx.wait();
         await fetchInfo();
@@ -1038,8 +1156,15 @@ const Rock = ({ id, profile }) => {
       if (account) {
         setLoading(true);
 
-        const contract = getWrapperContract();
-        const tx = await contract.createWarden();
+        let tx;
+
+        if (isCommunity) {
+          const contract = getHelper();
+          tx = await contract.register(id);
+        } else {
+          const contract = getWrapperContract();
+          tx = await contract.createWarden();
+        }
 
         await tx.wait();
         await fetchInfo();
